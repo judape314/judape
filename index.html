@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuestro Diario de Amor 💖</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff5f7; }
+    </style>
+</head>
+<body class="min-h-screen py-10 px-4 flex flex-col items-center">
+
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-6 space-y-6 border border-rose-100">
+        <!-- Título -->
+        <div class="text-center space-y-1">
+            <h1 class="text-2xl font-bold text-gray-800">Nuestro Diario 💖</h1>
+            <p class="text-xs text-gray-500">Un espacio para los dos en tiempo real</p>
+        </div>
+
+        <!-- Formulario -->
+        <form id="note-form" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Tu Nombre o Apodo</label>
+                <input type="text" id="author-input" required placeholder="Ej: Juan Daniel" class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Escribe tu nota</label>
+                <textarea id="message-input" rows="3" required placeholder="¿Qué quieres compartir hoy?" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"></textarea>
+            </div>
+            <button type="submit" id="submit-btn" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-rose-500/30 transition">
+                Publicar Nota
+            </button>
+        </form>
+
+        <!-- Lista de Notas -->
+        <div class="space-y-3 pt-4 border-t border-rose-50">
+            <h2 class="text-sm font-bold text-gray-700">Notas Compartidas</h2>
+            <div id="notes-container" class="space-y-3">
+                <p class="text-xs text-gray-400 text-center py-4">Cargando notas...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Firebase y lógica -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyALb3zydhWCns5_gQYQo4_Hqj4paB9aAuI",
+            authDomain: "nuestro-diario-384b8.firebaseapp.com",
+            projectId: "nuestro-diario-384b8",
+            storageBucket: "nuestro-diario-384b8.firebasestorage.app",
+            messagingSenderId: "363704493028",
+            appId: "1:363704493028:web:34f8b90c3f0d9753deddf1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const form = document.getElementById('note-form');
+        const authorInput = document.getElementById('author-input');
+        const messageInput = document.getElementById('message-input');
+        const notesContainer = document.getElementById('notes-container');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Enviar datos a Firebase
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const author = authorInput.value.trim();
+            const message = messageInput.value.trim();
+
+            if (!author || !message) return;
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Publicando...";
+
+            try {
+                await addDoc(collection(db, "diario_amor"), {
+                    author: author,
+                    message: message,
+                    createdAt: serverTimestamp()
+                });
+                messageInput.value = '';
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Publicar Nota";
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                alert("Hubo un error al guardar. Revisa la consola.");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Publicar Nota";
+            }
+        });
+
+        // Escuchar notas en tiempo real desde Firestore
+        const q = query(collection(db, "diario_amor"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            notesContainer.innerHTML = '';
+            
+            if (snapshot.empty) {
+                notesContainer.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Aún no hay notas escritas.</p>`;
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const card = document.createElement('div');
+                card.className = "bg-rose-50/60 border border-rose-100 rounded-2xl p-4 space-y-1 shadow-sm";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-rose-600">${data.author}</span>
+                        <span class="text-[10px] text-gray-400">Reciente</span>
+                    </div>
+                    <p class="text-xs text-gray-700 whitespace-pre-wrap">${data.message}</p>
+                `;
+                notesContainer.appendChild(card);
+            });
+        }, (error) => {
+            console.error("Error al escuchar Firestore:", error);
+            notesContainer.innerHTML = `<p class="text-xs text-red-500 text-center py-4">Error de conexión con la base de datos.</p>`;
+        });
+    </script>
+</body>
+</html>
