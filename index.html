@@ -1,54 +1,20 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuestro Diario de Amor 💖</title>
-    <!-- Tailwind CSS -->
+    <title>Nuestro Espacio de Amor 💖</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff5f7; }
-    </style>
-</head>
-<body class="min-h-screen py-10 px-4 flex flex-col items-center">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-6 space-y-6 border border-rose-100">
-        <!-- Título -->
-        <div class="text-center space-y-1">
-            <h1 class="text-2xl font-bold text-gray-800">Nuestro Diario 💖</h1>
-            <p class="text-xs text-gray-500">Un espacio para los dos en tiempo real</p>
-        </div>
-
-        <!-- Formulario -->
-        <form id="note-form" class="space-y-4">
-            <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1">Tu Nombre o Apodo</label>
-                <input type="text" id="author-input" required placeholder="Ej: Juan Daniel" class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1">Escribe tu nota</label>
-                <textarea id="message-input" rows="3" required placeholder="¿Qué quieres compartir hoy?" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"></textarea>
-            </div>
-            <button type="submit" id="submit-btn" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-rose-500/30 transition">
-                Publicar Nota
-            </button>
-        </form>
-
-        <!-- Lista de Notas -->
-        <div class="space-y-3 pt-4 border-t border-rose-50">
-            <h2 class="text-sm font-bold text-gray-700">Notas Compartidas</h2>
-            <div id="notes-container" class="space-y-3">
-                <p class="text-xs text-gray-400 text-center py-4">Cargando notas...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Script de Firebase y lógica -->
+    <!-- Firebase SDK con tus credenciales integradas -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, updateDoc, arrayUnion, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyALb3zydhWCns5_gQYQo4_Hqj4paB9aAuI",
@@ -60,69 +26,391 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const form = document.getElementById('note-form');
-        const authorInput = document.getElementById('author-input');
-        const messageInput = document.getElementById('message-input');
-        const notesContainer = document.getElementById('notes-container');
-        const submitBtn = document.getElementById('submit-btn');
+        window.db = db;
+        window.auth = auth;
+        window.FirestoreMethods = { collection, addDoc, onSnapshot, doc, getDoc, updateDoc, arrayUnion, query, orderBy, serverTimestamp };
 
-        // Enviar datos a Firebase
-        form.addEventListener('submit', async (e) => {
+        signInAnonymously(auth).then(() => {
+            console.log("Conectado con éxito a Firebase 💖");
+            window.dispatchEvent(new Event('firebase-ready'));
+        }).catch((err) => console.error("Error Firebase:", err));
+    </script>
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fff5f7; color: #333; }
+        .font-handwriting { font-family: 'Caveat', cursive; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-rose-200 selection:text-rose-900">
+
+    <!-- Notificación Flotante -->
+    <div id="live-toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-500 bg-white/95 backdrop-blur border border-rose-200 shadow-2xl rounded-2xl p-4 flex items-center space-x-3 max-w-sm">
+        <div class="bg-rose-500 text-white rounded-full p-2.5 shadow-md flex items-center justify-center">
+            <i class="fa-solid fa-heart text-lg animate-bounce"></i>
+        </div>
+        <div>
+            <h4 class="text-xs font-bold text-rose-600 uppercase tracking-wider">Nuevo mensaje</h4>
+            <p id="toast-message" class="text-sm text-gray-700 font-medium">Hay una nueva interacción en el diario...</p>
+        </div>
+    </div>
+
+    <!-- PORTADA Y TÍTULO CENTRAL -->
+    <header class="relative bg-gradient-to-b from-rose-100 via-pink-50 to-[#fff5f7] py-12 px-4 text-center overflow-hidden border-b border-rose-100 shadow-sm">
+        <div class="max-w-xl mx-auto relative z-10">
+            <span class="inline-block bg-white/80 backdrop-blur border border-rose-200 text-rose-600 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase mb-4 shadow-sm">
+                <i class="fa-solid fa-infinity mr-1.5 text-rose-500"></i> Nuestro Rincón Especial
+            </span>
+
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-3 font-handwriting">
+                Juntos en Cada Pensamiento & Sentimiento
+            </h1>
+            <p class="text-gray-600 text-sm sm:text-base max-w-md mx-auto mb-8 font-light">
+                Un espacio íntimo en tiempo real para escribir lo que sentimos, apoyarnos y dejar huella de nuestro amor.
+            </p>
+
+            <!-- Foto de Portada Circular Editable -->
+            <div class="relative w-44 h-44 sm:w-52 sm:h-52 mx-auto mb-8 group">
+                <div class="absolute -inset-1.5 bg-gradient-to-r from-rose-400 to-pink-500 rounded-full blur opacity-70 group-hover:opacity-100 transition duration-300"></div>
+                <label for="cover-photo-input" class="relative block w-full h-full rounded-full overflow-hidden border-4 border-white shadow-2xl cursor-pointer bg-rose-50">
+                    <img id="cover-photo-preview" src="https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=600" alt="Foto juntos" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center text-white text-xs font-medium">
+                        <i class="fa-solid fa-camera text-xl mb-1"></i>
+                        <span>Cambiar foto</span>
+                    </div>
+                </label>
+                <input type="file" id="cover-photo-input" accept="image/*" class="hidden">
+            </div>
+
+            <!-- Botón de desplazamiento hacia el diario -->
+            <a href="#diario-section" class="inline-flex items-center space-x-2 bg-white text-rose-600 border border-rose-200 hover:bg-rose-50 px-6 py-3 rounded-full text-sm font-semibold shadow-md transition">
+                <span>Escribir en el Diario</span>
+                <i class="fa-solid fa-arrow-down animate-bounce"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- SECCIÓN PRINCIPAL DEL DIARIO -->
+    <main id="diario-section" class="flex-grow max-w-2xl w-full mx-auto px-4 py-10 space-y-10">
+
+        <!-- Formulario para Publicar -->
+        <section class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-rose-100 relative overflow-hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-1 flex items-center font-handwriting">
+                <i class="fa-solid fa-pen-nib text-rose-500 mr-2.5 text-xl"></i> ¿Cómo te sientes en este momento?
+            </h2>
+            <p class="text-xs text-gray-500 mb-6">Escribe tu nota del día. Se sincronizará en la nube para ambos.</p>
+
+            <form id="diary-form" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">¿Quién escribe?</label>
+                        <select id="author-select" class="w-full bg-rose-50/60 border border-rose-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 focus:outline-none">
+                            <option value="Él">Él 👦🏻</option>
+                            <option value="Ella">Ella 👧🏻</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Tu Nombre / Apodo</label>
+                        <input type="text" id="custom-names-input" placeholder="Ej: Juan Daniel" class="w-full bg-rose-50/60 border border-rose-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <textarea id="diary-text" rows="4" required placeholder="Escribe aquí tu mensaje de amor..." class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"></textarea>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-4 pt-1">
+                    <label class="inline-flex items-center space-x-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+                        <i class="fa-regular fa-image text-base"></i>
+                        <span id="file-label-text">Adjuntar foto</span>
+                        <input type="file" id="diary-photo-input" accept="image/*" class="hidden">
+                    </label>
+
+                    <button type="submit" class="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg transition">
+                        <i class="fa-solid fa-paper-plane mr-1"></i> Publicar Nota
+                    </button>
+                </div>
+
+                <!-- Previsualización de foto adjunta -->
+                <div id="image-preview-container" class="hidden relative w-24 h-24 rounded-xl overflow-hidden border-2 border-rose-300 shadow-sm mt-2">
+                    <img id="image-preview" src="" alt="Preview" class="w-full h-full object-cover">
+                    <button type="button" id="remove-preview" class="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Historial en Vivo (Notas Compartidas) -->
+        <section class="space-y-6">
+            <div class="flex items-center justify-between px-2">
+                <h3 class="text-xl font-bold text-gray-800 font-handwriting">
+                    <i class="fa-solid fa-book-open text-rose-500 mr-2 text-lg"></i> Diario Compartido
+                </h3>
+                <span class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1 rounded-full font-medium flex items-center">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse mr-1.5"></span> Conectado en tiempo real
+                </span>
+            </div>
+
+            <div id="posts-container" class="space-y-6">
+                <div class="bg-white rounded-3xl p-8 text-center text-gray-400 border border-rose-100 shadow-sm">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-rose-400 mb-2"></i>
+                    <p class="text-sm">Cargando notas de la nube...</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-rose-100 py-6 text-center text-xs text-gray-500">
+        <p>Hecho con ❤️ para nuestro amor</p>
+    </footer>
+
+    <!-- Script principal de la aplicación -->
+    <script>
+        let base64Photo = null;
+        let coverBase64 = localStorage.getItem('cover_photo') || "https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=600";
+        document.getElementById('cover-photo-preview').src = coverBase64;
+
+        // Cambiar foto de portada
+        document.getElementById('cover-photo-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX = 500;
+                        let w = img.width, h = img.height;
+                        if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } }
+                        else { if (h > MAX) { w *= MAX / h; h = MAX; } }
+                        canvas.width = w; canvas.height = h;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        coverBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                        localStorage.setItem('cover_photo', coverBase64);
+                        document.getElementById('cover-photo-preview').src = coverBase64;
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Adjuntar foto a una nota
+        document.getElementById('diary-photo-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX = 600;
+                        let w = img.width, h = img.height;
+                        if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } }
+                        else { if (h > MAX) { w *= MAX / h; h = MAX; } }
+                        canvas.width = w; canvas.height = h;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        base64Photo = canvas.toDataURL('image/jpeg', 0.7);
+
+                        document.getElementById('image-preview').src = base64Photo;
+                        document.getElementById('image-preview-container').classList.remove('hidden');
+                        document.getElementById('file-label-text').innerText = "Foto adjuntada ✓";
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('remove-preview').addEventListener('click', () => {
+            base64Photo = null;
+            document.getElementById('diary-photo-input').value = "";
+            document.getElementById('image-preview-container').classList.add('hidden');
+            document.getElementById('file-label-text').innerText = "Adjuntar foto";
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('live-toast');
+            document.getElementById('toast-message').innerText = msg;
+            toast.style.transform = 'translateY(0)';
+            setTimeout(() => { toast.style.transform = 'translateY(-150%)'; }, 4000);
+        }
+
+        // Conexión y escucha de Firebase
+        window.addEventListener('firebase-ready', () => {
+            const { collection, addDoc, onSnapshot, doc, getDoc, updateDoc, arrayUnion, query, orderBy, serverTimestamp } = window.FirestoreMethods;
+            const db = window.db;
+
+            const postsQuery = query(collection(db, "diario_amor"), orderBy("createdAt", "desc"));
+
+            // Publicar nueva nota
+            document.getElementById('diary-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const author = document.getElementById('author-select').value;
+                const customName = document.getElementById('custom-names-input').value.trim() || author;
+                const text = document.getElementById('diary-text').value.trim();
+
+                if (!text) return;
+
+                try {
+                    await addDoc(collection(db, "diario_amor"), {
+                        author: author,
+                        customName: customName,
+                        text: text,
+                        photo: base64Photo || null,
+                        reactions: { '❤️': 0, '🥰': 0, '🫂': 0, '✨': 0 },
+                        responses: [],
+                        createdAt: serverTimestamp()
+                    });
+                    document.getElementById('diary-text').value = '';
+                    base64Photo = null;
+                    document.getElementById('image-preview-container').classList.add('hidden');
+                    document.getElementById('file-label-text').innerText = "Adjuntar foto";
+                    showToast("¡Nota publicada en la nube con éxito!");
+                } catch (err) {
+                    console.error("Error al publicar:", err);
+                    alert("Error al guardar en la base de datos.");
+                }
+            });
+
+            let firstRun = true;
+            onSnapshot(postsQuery, (snapshot) => {
+                const container = document.getElementById('posts-container');
+                container.innerHTML = '';
+
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="bg-white rounded-3xl p-8 text-center text-gray-400 border border-rose-100 shadow-sm">
+                            <i class="fa-solid fa-heart-crack text-3xl text-rose-300 mb-2"></i>
+                            <p class="text-sm">El diario está vacío. ¡Escribe la primera nota!</p>
+                        </div>
+                    `;
+                    firstRun = false;
+                    return;
+                }
+
+                if (!firstRun) showToast("¡El diario se ha actualizado!");
+                firstRun = false;
+
+                snapshot.forEach((docSnap) => {
+                    const post = docSnap.data();
+                    const postId = docSnap.id;
+                    const dateStr = post.createdAt ? new Date(post.createdAt.toDate()).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'Reciente';
+
+                    // Botones de reacciones
+                    let reactionsHtml = '';
+                    for (let [emoji, count] of Object.entries(post.reactions || {})) {
+                        reactionsHtml += `
+                            <button onclick="reactPost('${postId}', '${emoji}')" class="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 transition">
+                                <span>${emoji}</span>
+                                <span class="bg-white px-1.5 py-0.2 rounded-full text-[10px] shadow-sm">${count}</span>
+                            </button>
+                        `;
+                    }
+
+                    // Lista de respuestas
+                    let responsesHtml = '';
+                    (post.responses || []).forEach(resp => {
+                        responsesHtml += `
+                            <div class="bg-rose-50/60 border border-rose-100 rounded-2xl p-3 text-xs space-y-1">
+                                <div class="flex justify-between font-bold text-gray-700">
+                                    <span>${resp.author}</span>
+                                    <span class="text-[10px] text-gray-400 font-normal">${resp.date}</span>
+                                </div>
+                                <p class="text-gray-600">${resp.text}</p>
+                            </div>
+                        `;
+                    });
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white rounded-3xl p-6 sm:p-7 shadow-xl border border-rose-100 space-y-4";
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-rose-400 to-pink-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                                    ${post.author.charAt(0)}
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-900">${post.customName}</h4>
+                                    <span class="text-[11px] text-gray-400">${dateStr}</span>
+                                </div>
+                            </div>
+                            <span class="bg-rose-100 text-rose-700 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
+                                ${post.author}
+                            </span>
+                        </div>
+
+                        <p class="text-gray-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">${post.text}</p>
+
+                        ${post.photo ? `
+                            <div class="rounded-2xl overflow-hidden border border-rose-100 max-h-80 bg-gray-50 flex items-center justify-center shadow-sm">
+                                <img src="${post.photo}" class="w-full h-full object-cover max-h-80" alt="Foto">
+                            </div>
+                        ` : ''}
+
+                        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-rose-50">
+                            ${reactionsHtml}
+                        </div>
+
+                        <div class="space-y-3 pt-2">
+                            <div class="space-y-2">${responsesHtml}</div>
+                            <form onsubmit="sendResponse(event, '${postId}')" class="flex gap-2 pt-1">
+                                <input type="text" name="responseText" placeholder="Responder a esta nota..." required class="flex-grow bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-rose-400">
+                                <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition">
+                                    Responder
+                                </button>
+                            </form>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            });
+        });
+
+        // Función para reaccionar a una nota
+        window.reactPost = async function(postId, emoji) {
+            const { doc, getDoc, updateDoc } = window.FirestoreMethods;
+            const db = window.db;
+            const postRef = doc(db, "diario_amor", postId);
+            
+            try {
+                const docSnap = await getDoc(postRef);
+                if (docSnap.exists()) {
+                    let reactions = docSnap.data().reactions || { '❤️': 0, '🥰': 0, '🫂': 0, '✨': 0 };
+                    reactions[emoji] = (reactions[emoji] || 0) + 1;
+                    await updateDoc(postRef, { reactions: reactions });
+                }
+            } catch (err) { console.error(err); }
+        };
+
+        // Función para enviar respuesta a una nota
+        window.sendResponse = async function(e, postId) {
             e.preventDefault();
-            const author = authorInput.value.trim();
-            const message = messageInput.value.trim();
+            const input = e.target.elements.responseText;
+            const text = input.value.trim();
+            if (!text) return;
 
-            if (!author || !message) return;
+            const author = document.getElementById('author-select').value;
+            const now = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-            submitBtn.disabled = true;
-            submitBtn.innerText = "Publicando...";
+            const { doc, updateDoc, arrayUnion } = window.FirestoreMethods;
+            const db = window.db;
+            const postRef = doc(db, "diario_amor", postId);
 
             try {
-                await addDoc(collection(db, "diario_amor"), {
-                    author: author,
-                    message: message,
-                    createdAt: serverTimestamp()
+                await updateDoc(postRef, {
+                    responses: arrayUnion({ author: author, text: text, date: now })
                 });
-                messageInput.value = '';
-                submitBtn.disabled = false;
-                submitBtn.innerText = "Publicar Nota";
-            } catch (error) {
-                console.error("Error al guardar:", error);
-                alert("Hubo un error al guardar. Revisa la consola.");
-                submitBtn.disabled = false;
-                submitBtn.innerText = "Publicar Nota";
-            }
-        });
-
-        // Escuchar notas en tiempo real desde Firestore
-        const q = query(collection(db, "diario_amor"), orderBy("createdAt", "desc"));
-        onSnapshot(q, (snapshot) => {
-            notesContainer.innerHTML = '';
-            
-            if (snapshot.empty) {
-                notesContainer.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Aún no hay notas escritas.</p>`;
-                return;
-            }
-
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const card = document.createElement('div');
-                card.className = "bg-rose-50/60 border border-rose-100 rounded-2xl p-4 space-y-1 shadow-sm";
-                card.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-rose-600">${data.author}</span>
-                        <span class="text-[10px] text-gray-400">Reciente</span>
-                    </div>
-                    <p class="text-xs text-gray-700 whitespace-pre-wrap">${data.message}</p>
-                `;
-                notesContainer.appendChild(card);
-            });
-        }, (error) => {
-            console.error("Error al escuchar Firestore:", error);
-            notesContainer.innerHTML = `<p class="text-xs text-red-500 text-center py-4">Error de conexión con la base de datos.</p>`;
-        });
+                input.value = '';
+                showToast("¡Respuesta agregada!");
+            } catch (err) { console.error(err); }
+        };
     </script>
 </body>
 </html>
